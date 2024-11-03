@@ -4,4 +4,4 @@ from config_manager import GlobalConfigManager
 meinManager = GlobalConfigManager()
 userManager = UserConfigManager()
 
-userManager.set("Email", "Da@da")
+userManager.set("Email", "a")

@@ -6,15 +6,34 @@ import getpass
 from typing import Any, Optional
 
 
+defaultGlobalConfig = {
+    "PRODUCTION_PATH": "/",
+    "MACHINES": ["4.02", "4.03", "4.61", "4.62", "4.11", "5.25", "5.26", "5.27"],
+    "SUBFOLDERS": ["Pressendaten", "SSG-PBS", "SSG-PBS-CSV", "TagesCSV"],
+    "UPDATING": False,
+    "LAST_UPDATE": "",
+}
+
+defaultUserConfig = {
+    "Favorites": [],
+    "Theme": "normal",
+    "Email": "",
+    "Notifications": False,
+}
+
+
 class BaseConfigManager:
     def __init__(
-        self, config_filename: str = "config.json", defaultDict: Optional[dict[Any, Any]] = None
+        self,
+        config_filename: str = "config.json",
+        defaultDict: Optional[dict[Any, Any]] = None,
     ) -> None:
         self.config_path: str = self._get_config_path(config_filename)
         self.defaultDict: dict = defaultDict if defaultDict is not None else {}
         self.config: dict = self._load_config()
 
     def _get_config_path(self, filename: str) -> str:
+        """Configpfad im abspath suchen"""
         if getattr(sys, "frozen", False):
             base_path = os.path.dirname(sys.executable)
         else:
@@ -22,6 +41,7 @@ class BaseConfigManager:
         return os.path.join(base_path, filename)
 
     def _load_config(self) -> dict:
+        """Config Daten aus der Datei laden."""
         if os.path.exists(self.config_path):
             with open(self.config_path, "r") as file:
                 return json.load(file)
@@ -30,6 +50,7 @@ class BaseConfigManager:
             return self.defaultDict.copy()
 
     def _save_config(self, default: bool = False) -> bool:
+        """Daten in die Config schreiben."""
         try:
             with open(self.config_path, "w") as file:
                 json.dump(
@@ -46,16 +67,9 @@ class BaseConfigManager:
 
 
 class GlobalConfigManager(BaseConfigManager):
-    defaultDict = {
-        "PRODUCTION_PATH": "/",
-        "MACHINES": ["4.02", "4.03", "4.61", "4.62", "4.11", "5.25", "5.26", "5.27"],
-        "SUBFOLDERS": ["Pressendaten", "SSG-PBS", "SSG-PBS-CSV", "TagesCSV"],
-        "UPDATING": False,
-        "LAST_UPDATE": "",
-    }
-
+    """Bearbeitet oder erstellt die Configdatei für globale Einstellungen"""
     def __init__(self, config_path: str = "global_config.json") -> None:
-        super().__init__(config_path, GlobalConfigManager.defaultDict)
+        super().__init__(config_path, defaultGlobalConfig)
 
     def get(self, key: str, default=None) -> Any:
         return self.config.get(key, default)
@@ -66,13 +80,10 @@ class GlobalConfigManager(BaseConfigManager):
 
 
 class UserConfigManager(BaseConfigManager):
-    defaultDict = {"Favorites": [], "Theme": "normal", "Email": "", "Notifications": False}
-
+    """Bearbeitet oder erstellt die Configdatei für Usereinstellungen"""
     def __init__(self, config_path: str = "user_config.json") -> None:
-        super().__init__(config_path)
-        self._user = self._encode_item(
-            getpass.getuser()
-        )  # Verwende den Windows-Benutzernamen als Key direkt
+        self._user = self._encode_item(getpass.getuser())
+        super().__init__(config_path, {self._user: defaultUserConfig})
         if self._user not in self.config:
             self.config[self._user] = self.defaultDict.copy()
             self._save_config()
@@ -80,7 +91,7 @@ class UserConfigManager(BaseConfigManager):
     def get(self, key: str, default=None) -> Any:
         user_data = self.config.get(self._user, {})
         if key == "Email" and user_data.get("Email"):
-            return self._encode_item(user_data["Email"])
+            return self._decode_item(user_data["Email"])  # Decodieren statt Codieren
         return user_data.get(key, default)
 
     def set(self, key: str, value: Any) -> bool:
@@ -99,3 +110,4 @@ class UserConfigManager(BaseConfigManager):
     def _decode_item(self, item: str) -> str:
         """Decodiert die base64-codierte E-Mail"""
         return base64.urlsafe_b64decode(item.encode()).decode()
+
